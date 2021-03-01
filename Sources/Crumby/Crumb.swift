@@ -2,7 +2,7 @@ import SwiftUI
 
 public class Crumb: NSObject, ObservableObject {
 
-    struct TabView {
+    public struct TabView {
         let views: [AnyView]
         let tabViews: [AnyView]
         
@@ -34,7 +34,7 @@ public class Crumb: NSObject, ObservableObject {
         
     deinit { print("deinit \(self)") }
         
-    func dismiss() {
+    public func dismiss() {
         guard presentationType != .tab else { return }
         
         let p = parent
@@ -104,7 +104,7 @@ extension Crumb.TabView {
 
 }
 
-extension CrumbView where Content == AnyView {
+public extension CrumbView where Content == AnyView {
     
     static func root(view: AnyView, rootCrumb callback: ((Crumb) -> Void)? = nil) -> AnyView {
         let crumb = Crumb(view: view.erased, parent: nil, presentationType: .root)
@@ -130,7 +130,7 @@ extension CrumbView where Content == AnyView {
 
 
 
-extension Crumb {
+public extension Crumb {
     
     func push(view: AnyView) {
         let c = Crumb(view: view, parent: self, presentationType: .push)

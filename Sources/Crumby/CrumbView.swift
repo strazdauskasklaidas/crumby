@@ -22,7 +22,7 @@ import SwiftUI
 // new view appears
 // old disappears
 
-struct CrumbView<Content: View>: View {
+public struct CrumbView<Content: View>: View {
     
     @ObservedObject private var crumb: Crumb
     
@@ -30,7 +30,7 @@ struct CrumbView<Content: View>: View {
         self.crumb = crumb
     }
     
-    var body: some View {
+    public var body: some View {
 
             
         VStack {
