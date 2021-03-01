@@ -6,7 +6,7 @@ public class Crumb: NSObject, ObservableObject {
         let views: [AnyView]
         let tabViews: [AnyView]
         
-        init(views: [AnyView], tabViews: [AnyView]) {
+        public init(views: [AnyView], tabViews: [AnyView]) {
             self.views = views
             self.tabViews = tabViews
         }
