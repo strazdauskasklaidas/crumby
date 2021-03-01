@@ -1,6 +1,6 @@
 import SwiftUI
 
-extension Array where Element: View {
+public extension Array where Element: View {
     
     var erased: [AnyView] {
         map { $0.erased }
@@ -26,7 +26,7 @@ extension View {
         return AnyView(self)
      }
 
-    var erased: AnyView {
+    public var erased: AnyView {
         .init(erasing: self)
     }
 
