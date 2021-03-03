@@ -20,7 +20,7 @@ public class Crumb: NSObject, ObservableObject {
     var view: AnyView?
     var isVisible = false
     var isSwapppingOutView = false
-    @Published var parent: Crumb?
+    @Published public private(set) var parent: Crumb?
     let presentationType: ViewPresentationType
     
     @Published var child: Crumb?
@@ -57,9 +57,6 @@ public class Crumb: NSObject, ObservableObject {
     }
     
 }
-
-
-// root -> navi -> view
 
 extension View {
 
@@ -156,18 +153,41 @@ public extension Crumb {
 //    func swapOut(withTabView tabView: TabView) {
 //
 //    }
+
+    func getParent(_ type: ViewPresentationType) -> Crumb? {
+        var result: Crumb? = nil
+        
+        visitAncestors {
+            if $0.presentationType == type {
+                result = $0
+                return false
+            }
+            
+            return true
+        }
+        
+        return result
+    }
     
 }
 
+
+
 extension Crumb {
+    
+    func visitAncestors(_ visit: (Crumb) -> Bool) {
+        var maybeParent = parent
+        while let p = maybeParent, visit(p) {
+            maybeParent = p.parent
+        }
+    }
     
     var ancestors: [Crumb] {
         var array = [Crumb]()
         
-        var maybeParent = parent
-        while let p = maybeParent {
-            array.append(p)
-            maybeParent = p.parent
+        visitAncestors {
+            array.append($0)
+            return true
         }
         
         return array
@@ -187,43 +207,43 @@ extension Crumb {
     
     func printHierarchy() {
         
-        return 
-        var crumbs = [self]
-
-        var maybeParent = parent
-        while let p = maybeParent {
-            crumbs.append(p)
-            maybeParent = p.parent
-        }
-
-        let output = crumbs
-            .reversed()
-            .enumerated()
-            .reduce(into: "\n\(String(repeating: "-", count: 20))\nNavigationStack\n\(String(repeating: "-", count: 20))")
-            {
-                if $1.offset > 0 {
-                    $0.append("\nV")
-                }
-
-                let crumb = $1.element
-                if let parent = crumb.parent {
-                    $0.append("\n parent: \(parent)")
-                }
-
-                $0.append("\n crumb: \(crumb) \(crumb.presentationType)")
-                
-                if let tabs = crumb.tabs {
-                    $0.append("\n tabs: \(tabs)" )
-                }
-                
-
-                if let child = crumb.child {
-                    $0.append("\n child: \(child)" )
-                }
-
-            }.appending("\n\(String(repeating: "-", count: 20))")
-
-        print(output)
+//        return 
+//        var crumbs = [self]
+//
+//        var maybeParent = parent
+//        while let p = maybeParent {
+//            crumbs.append(p)
+//            maybeParent = p.parent
+//        }
+//
+//        let output = crumbs
+//            .reversed()
+//            .enumerated()
+//            .reduce(into: "\n\(String(repeating: "-", count: 20))\nNavigationStack\n\(String(repeating: "-", count: 20))")
+//            {
+//                if $1.offset > 0 {
+//                    $0.append("\nV")
+//                }
+//
+//                let crumb = $1.element
+//                if let parent = crumb.parent {
+//                    $0.append("\n parent: \(parent)")
+//                }
+//
+//                $0.append("\n crumb: \(crumb) \(crumb.presentationType)")
+//
+//                if let tabs = crumb.tabs {
+//                    $0.append("\n tabs: \(tabs)" )
+//                }
+//
+//
+//                if let child = crumb.child {
+//                    $0.append("\n child: \(child)" )
+//                }
+//
+//            }.appending("\n\(String(repeating: "-", count: 20))")
+//
+//        print(output)
     }
     
 }

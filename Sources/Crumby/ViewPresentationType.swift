@@ -1,4 +1,4 @@
-enum ViewPresentationType {
+public enum ViewPresentationType {
     case root
     case push
     case sheet

@@ -44,12 +44,11 @@ public struct CrumbView<Content: View>: View {
                     .frame(width: 0, height: 0, alignment: .bottom)
                     .hidden()
             }
-            
         }
         .onAppear(perform: onAppear)
         .onDisappear(perform: onDisappear)
         .sheet(isPresented: .init(get: { crumb.child?.presentationType == .sheet }, set: { _ in })) {
-                CrumbView(crumb: crumb.child!)
+            CrumbView(crumb: crumb.child!)
         }.applyIf([.sheet].contains(crumb.presentationType)) { v in
             NavigationView {
                 v
@@ -75,18 +74,21 @@ public struct CrumbView<Content: View>: View {
 
         crumb.isVisible = false
         
-        //Push disappear
-        if crumb.presentationType == .push && crumb.parent?.isVisible ?? false  {
+        let parentIsVisible = crumb.parent?.isVisible ?? false
+        
+        switch crumb.presentationType {
+        case .push:
+            if parentIsVisible{
+                crumb.disconnect()
+            } else if crumb.child == nil, let parentSheet = crumb.getParent(.sheet), parentSheet.child?.presentationType == .push {
+                parentSheet.disconnect()
+            }
+            
+        case .sheet where parentIsVisible && crumb.child?.presentationType != .push:
             crumb.disconnect()
-            return
+        default: return
         }
-
-        // sheet disappear
-        // sheet -> push -> swipe down = poop
-        if crumb.presentationType == .sheet && crumb.parent?.isVisible ?? false && crumb.child?.presentationType != .push {
-            crumb.disconnect()
-            return
-        }
+        
     }
             
 }
