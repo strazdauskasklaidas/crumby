@@ -16,6 +16,9 @@ public class Crumb: NSObject, ObservableObject {
     @Published var child: Crumb?
     @Published var tabs: Tabs?
     
+    var performOnAppearOnce = [() -> Void]()
+    var performOnceOnDisappear = [() -> Void]()
+    
     init(view: AnyView?, parent: Crumb?, presentationType: ViewPresentationType) {
         self.view = view
         self.parent = parent
@@ -44,39 +47,95 @@ public class Crumb: NSObject, ObservableObject {
 
 public extension Crumb {
         
-    func push<T: View>(@ViewBuilder content: @escaping () -> T) {
-        child = .init(content: content, parent: self, presentationType: .push)
+    func push<T: View>(@ViewBuilder content: @escaping () -> T, onAppear: ((Crumb) -> Void)? = nil) {
+        let childCrumb = Crumb(content: content, parent: self, presentationType: .push)
+
+        if let callback = onAppear {
+            childCrumb.performOnAppearOnce.append {
+                callback(childCrumb)
+            }
+        }
+
+        child = childCrumb
     }
             
-    func sheet<T: View>(@ViewBuilder content: @escaping () -> T) {
-        child = .init(content: content, parent: self, presentationType: .sheet)
+    func sheet<T: View>(@ViewBuilder content: @escaping () -> T, onAppear: ((Crumb) -> Void)? = nil) {
+        let childCrumb = Crumb(content: content, parent: self, presentationType: .sheet)
+        
+        if let callback = onAppear {
+            childCrumb.performOnAppearOnce.append {
+                callback(childCrumb)
+            }
+        }
+        
+        child = childCrumb
     }
     
-    func sheet(tabView: (inout TabViewBuilder) -> Void) {
+    func sheet(tabView: (inout TabViewBuilder) -> Void, onAppear: ((Crumb) -> Void)? = nil) {
         var builder = TabViewBuilder()
         tabView(&builder)
-        child = builder.toCrumb(parent: self, presentationType: .sheet)
+        let childCrumb = builder.toCrumb(parent: self, presentationType: .sheet)
+            
+        if let callback = onAppear {
+            childCrumb.performOnAppearOnce.append {
+                callback(childCrumb)
+            }
+        }
+        
+        child = childCrumb
     }
     
-    func swap<T: View>(@ViewBuilder content: @escaping () -> T) {
+    func swap<T: View>(@ViewBuilder content: @escaping () -> T, onAppear: ((Crumb) -> Void)? = nil) {
         isSwapppingOutView = true
         tabs = nil
+        
+        
+        if let callback = onAppear {
+            performOnAppearOnce.append {
+                callback(self)
+            }
+        }
+        
         view = content().erased
     }
 
-    func swap(tabView: (inout TabViewBuilder) -> Void) {
+    func swap(tabView: (inout TabViewBuilder) -> Void, onAppear: ((Crumb) -> Void)? = nil) {
         isSwapppingOutView = true
         
         var builder = TabViewBuilder()
         tabView(&builder)
         let (newView, newTabs) = builder.makeViewAndTabs(parent: self)
+        
+        if let callback = onAppear {
+            performOnAppearOnce.append {
+                callback(self)
+            }
+        }
+        
         view = newView
         tabs = newTabs
     }
     
     var selectedTab: Int? {
-        get { tabs?.index.value }
-        set { newValue.flatMap { tabs?.index.value = $0 } }
+        tabs?.index.value
+    }
+    
+    func selectTab(index: Int, onAppear: ((Crumb) -> Void)? = nil) {
+        guard
+            let tabs = tabs,
+            (tabs.crumbs.count - 1) <= index,
+            tabs.index.value != index
+        else { return }
+        
+        let crumb = tabs.crumbs[index]
+        
+        if let callback = onAppear {
+            crumb.performOnAppearOnce.append {
+                callback(crumb)
+            }
+        }
+        
+        tabs.index.value = index
     }
 
     func getParent(_ type: ViewPresentationType) -> Crumb? {
@@ -94,14 +153,24 @@ public extension Crumb {
         return result
     }
     
-    func dismiss() {
-        guard presentationType != .tab && presentationType != .root else { return }
+    func getParentTabView() -> Crumb? {
+        presentationType == .tab
+            ? parent
+            : getParent(.tab)?.parent
+    }
+    
+    func dismiss(onDisappear: ((Crumb) -> Void)? = nil) {
+        guard let p = parent, ![.tab, .root].contains(presentationType) else { return }
         
-        let p = parent
+        if let callback = onDisappear {
+            performOnceOnDisappear.append {
+                callback(p)
+            }
+        }
         
         disconnect()
         
-        p?.printHierarchy()
+        p.printHierarchy()
     }
     
 }

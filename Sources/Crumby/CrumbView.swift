@@ -34,6 +34,8 @@ public struct CrumbView<Content: View>: View {
         VStack {
             crumb.view
                 .environmentObject(crumb)
+                .onAppear(perform: onAppear)
+                .onDisappear(perform: onDisappear)
                 
             if let child = crumb.child, child.presentationType == .push {
                 NavigationLink("",
@@ -43,8 +45,6 @@ public struct CrumbView<Content: View>: View {
                     .hidden()
             }
         }
-        .onAppear(perform: onAppear)
-        .onDisappear(perform: onDisappear)
         .sheet(isPresented: .init(get: { crumb.child?.presentationType == .sheet }, set: { _ in })) {
             CrumbView(crumb: crumb.child!)
         }
@@ -56,6 +56,12 @@ public struct CrumbView<Content: View>: View {
     
     private func onAppear() {
         print("xxx onAppear \(crumb)")
+        
+        defer {
+            crumb.performOnAppearOnce.forEach { $0() }
+            crumb.performOnAppearOnce.removeAll()
+        }
+        
         if crumb.isSwapppingOutView {
             crumb.isSwapppingOutView = false
             return
@@ -66,6 +72,12 @@ public struct CrumbView<Content: View>: View {
     
     private func onDisappear() {
         print("xxx onDisappear \(crumb)")
+        
+        defer {
+            crumb.performOnceOnDisappear.forEach { $0() }
+            crumb.performOnceOnDisappear.removeAll()
+        }
+        
         guard !crumb.isSwapppingOutView else { return }
 
         crumb.isVisible = false
