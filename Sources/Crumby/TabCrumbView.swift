@@ -12,7 +12,6 @@ struct TabCrumbView<Content: View>: View {
     
     var body: some View {
         TabView(selection: $index.value, content: content)
-            .navigationBarHidden(true)
     }
     
 }

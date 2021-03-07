@@ -1,16 +1,6 @@
 import SwiftUI
 
 public class Crumb: NSObject, ObservableObject {
-
-    public struct TabView {
-        let views: [AnyView]
-        let tabViews: [AnyView]
-        
-        public init(views: [AnyView], tabViews: [AnyView]) {
-            self.views = views
-            self.tabViews = tabViews
-        }
-    }
     
     struct Tabs {
         let crumbs: [Crumb]
@@ -20,7 +10,7 @@ public class Crumb: NSObject, ObservableObject {
     var view: AnyView?
     var isVisible = false
     var isSwapppingOutView = false
-    @Published public private(set) var parent: Crumb?
+    public private(set) var parent: Crumb?
     let presentationType: ViewPresentationType
     
     @Published var child: Crumb?
@@ -31,19 +21,13 @@ public class Crumb: NSObject, ObservableObject {
         self.parent = parent
         self.presentationType = presentationType
     }
-        
-    deinit { print("deinit \(self)") }
-        
-    public func dismiss() {
-        guard presentationType != .tab else { return }
-        
-        let p = parent
-        
-        disconnect()
-        
-        p?.printHierarchy()
+      
+    convenience init<T: View>(@ViewBuilder content: () -> T, parent: Crumb?, presentationType: ViewPresentationType) {
+        self.init(view: content().erased, parent: parent, presentationType: presentationType)
     }
     
+    deinit { print("deinit \(self)") }
+            
     func disconnect() {
         tabs?.crumbs.forEach { $0.disconnect() }
         child?.disconnect()
@@ -58,101 +42,42 @@ public class Crumb: NSObject, ObservableObject {
     
 }
 
-extension View {
-
-    func wrapInNavigationView() -> AnyView {
-        NavigationView { self }
-            .navigationViewStyle(StackNavigationViewStyle())
-            .erased
-    }
-
-}
-
-extension Crumb {
-
-    func wrapInNavigationView() -> AnyView {
-        CrumbView<AnyView>(crumb: self)
-            .wrapInNavigationView()
-    }
-
-}
-
-extension Crumb.TabView {
-
-    func toCrumb(parent: Crumb?, presentationType: ViewPresentationType) -> Crumb {
-        let crumb = Crumb(view: nil, parent: parent, presentationType: presentationType)
-        let tabs = Crumb.Tabs(crumbs: views.map { .init(view: $0.wrapInNavigationView(),
-                                                        parent: crumb,
-                                                        presentationType: .tab) },
-                              
-                              index: .init(index: 0))
-        
-        crumb.tabs = tabs
-        crumb.view = TabCrumbView(index: tabs.index) {
-            ForEach(views.identified) { (v: AnyView.WithId) in
-                CrumbView<AnyView>(crumb: tabs.crumbs[v.id])
-                    .tabItem { tabViews[v.id] }
-            }
-        }
-        .erased
-        
-        return crumb
-    }
-
-}
-
-public extension CrumbView where Content == AnyView {
-    
-    static func root(view: AnyView, rootCrumb callback: ((Crumb) -> Void)? = nil) -> AnyView {
-        let crumb = Crumb(view: view.erased, parent: nil, presentationType: .root)
-        callback?(crumb)
-        
-        
-        
-        return
-//            NavigationView {
-            CrumbView(crumb: crumb).wrapInNavigationView()
-//        }
-//        .navigationViewStyle(StackNavigationViewStyle())
-//        .erased
-    }
-    
-//    static func root(tabView: Crumb.TabView, rootCrumb callback: ((Crumb) -> Void)? = nil) -> AnyView {
-//        let crumb = tabView.toCrumb(parent: nil, presentationType: .root)
-//        callback?(crumb)
-//        return crumb.wrapInNavigationView()
-//    }
-        
-}
-
-
-
 public extension Crumb {
-    
-    func push(view: AnyView) {
-        let c = Crumb(view: view, parent: self, presentationType: .push)
-        child = c
+        
+    func push<T: View>(@ViewBuilder content: @escaping () -> T) {
+        child = .init(content: content, parent: self, presentationType: .push)
+    }
+            
+    func sheet<T: View>(@ViewBuilder content: @escaping () -> T) {
+        child = .init(content: content, parent: self, presentationType: .sheet)
     }
     
-    func push(tabView: TabView) {
-        child = tabView.toCrumb(parent: self, presentationType: .push)
+    func sheet(tabView: (inout TabViewBuilder) -> Void) {
+        var builder = TabViewBuilder()
+        tabView(&builder)
+        child = builder.toCrumb(parent: self, presentationType: .sheet)
     }
     
-    func sheet(view: AnyView) {
-        child = .init(view: view, parent: self, presentationType: .sheet)
+    func swap<T: View>(@ViewBuilder content: @escaping () -> T) {
+        isSwapppingOutView = true
+        tabs = nil
+        view = content().erased
+    }
+
+    func swap(tabView: (inout TabViewBuilder) -> Void) {
+        isSwapppingOutView = true
+        
+        var builder = TabViewBuilder()
+        tabView(&builder)
+        let (newView, newTabs) = builder.makeViewAndTabs(parent: self)
+        view = newView
+        tabs = newTabs
     }
     
-    func sheet(tabView: TabView) {
-        child = tabView.toCrumb(parent: self, presentationType: .sheet)
+    var selectedTab: Int? {
+        get { tabs?.index.value }
+        set { newValue.flatMap { tabs?.index.value = $0 } }
     }
-    
-//    func swapOut(withView view: AnyView) {
-//
-//    }
-//
-//    func swapOut(withTabView tabView: TabView) {
-//
-//    }
 
     func getParent(_ type: ViewPresentationType) -> Crumb? {
         var result: Crumb? = nil
@@ -169,9 +94,17 @@ public extension Crumb {
         return result
     }
     
+    func dismiss() {
+        guard presentationType != .tab && presentationType != .root else { return }
+        
+        let p = parent
+        
+        disconnect()
+        
+        p?.printHierarchy()
+    }
+    
 }
-
-
 
 extension Crumb {
     

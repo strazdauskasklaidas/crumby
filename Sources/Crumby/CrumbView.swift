@@ -31,8 +31,6 @@ public struct CrumbView<Content: View>: View {
     }
     
     public var body: some View {
-
-            
         VStack {
             crumb.view
                 .environmentObject(crumb)
@@ -49,13 +47,11 @@ public struct CrumbView<Content: View>: View {
         .onDisappear(perform: onDisappear)
         .sheet(isPresented: .init(get: { crumb.child?.presentationType == .sheet }, set: { _ in })) {
             CrumbView(crumb: crumb.child!)
-        }.applyIf([.sheet].contains(crumb.presentationType)) { v in
-            NavigationView {
-                v
-            }.navigationViewStyle(StackNavigationViewStyle())
         }
-            
-
+        .applyIf(crumb.shouldBeWrappedInNavigationView) { v in
+            NavigationView { v }
+                .navigationViewStyle(StackNavigationViewStyle())
+        }
     }
     
     private func onAppear() {
@@ -86,9 +82,47 @@ public struct CrumbView<Content: View>: View {
             
         case .sheet where parentIsVisible && crumb.child?.presentationType != .push:
             crumb.disconnect()
-        default: return
+        default:
+            return
         }
         
+    }
+            
+}
+
+private extension Crumb {
+
+    var shouldBeWrappedInNavigationView: Bool {
+        switch presentationType {
+        case .root where tabs == nil:
+            return true
+        case .sheet where tabs == nil:
+            return true
+//        case .tab:
+//            return true
+        default:
+            return false
+        }
+    }
+
+}
+
+public extension CrumbView where Content == AnyView {
+    
+    static func root<T: View>(@ViewBuilder content: @escaping () -> T, rootCrumb callback: ((Crumb) -> Void)? = nil) -> AnyView {
+        let crumb = Crumb(content: content, parent: nil, presentationType: .root)
+        callback?(crumb)
+        
+        return CrumbView(crumb: crumb).erased
+    }
+
+    static func root(tabView: (inout TabViewBuilder) -> Void, rootCrumb callback: ((Crumb) -> Void)? = nil) -> AnyView {
+        var builder = TabViewBuilder()
+        tabView(&builder)
+        let crumb = builder.toCrumb(parent: nil, presentationType: .root)
+        callback?(crumb)
+        
+        return CrumbView(crumb: crumb).erased
     }
             
 }
