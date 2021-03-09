@@ -14,7 +14,7 @@ public class Crumb: NSObject, ObservableObject {
     let presentationType: ViewPresentationType
     
     @Published var child: Crumb?
-    @Published var tabs: Tabs?
+    var tabs: Tabs?
     
     var performOnAppearOnce = [() -> Void]()
     var performOnceOnDisappear = [() -> Void]()
