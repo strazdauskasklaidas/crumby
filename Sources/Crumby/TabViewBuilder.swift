@@ -16,7 +16,7 @@ extension TabViewBuilder {
     
     func makeViewAndTabs(parent: Crumb) -> (AnyView, Crumb.Tabs) {
         let tabs = Crumb.Tabs(crumbs: self.tabs.map { v in
-                                .init(view: NavigationView { v }.navigationViewStyle(StackNavigationViewStyle()).erased,
+                                .init(view: v,
                                       parent: parent,
                                       presentationType: .tab) },
                               index: .init(index: 0))

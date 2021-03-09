@@ -110,8 +110,8 @@ private extension Crumb {
             return true
         case .sheet where tabs == nil:
             return true
-//        case .tab:
-//            return true
+        case .tab:
+            return true
         default:
             return false
         }
