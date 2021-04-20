@@ -2,11 +2,12 @@ import SwiftUI
 
 public struct TabViewBuilder {
     
-    private var tabs = [AnyView]()
+    private var tabs = [(view: AnyView, handle: Any?)]()
     private var items = [AnyView]()
     
     public mutating func callAsFunction<T: View, I: View>(@ViewBuilder content: @escaping () -> T, @ViewBuilder item: @escaping () -> I) {
-        tabs = tabs + [content().erased]
+        let c = content()
+        tabs = tabs + [(c.erased, toHandle(c))]
         items = items + [item().erased]
     }
         
@@ -15,14 +16,15 @@ public struct TabViewBuilder {
 extension TabViewBuilder {
     
     func makeViewAndTabs(parent: Crumb) -> (AnyView, Crumb.Tabs) {
-        let tabs = Crumb.Tabs(crumbs: self.tabs.map { v in
-                                .init(view: v,
+        let tabs = Crumb.Tabs(crumbs: self.tabs.map { tab in
+                                .init(view: tab.view,
                                       parent: parent,
-                                      presentationType: .tab) },
+                                      presentationType: .tab,
+                                      handle: tab.handle) },
                               index: .init(index: 0))
         
         let view = TabCrumbView(index: tabs.index) {
-            ForEach(self.tabs.identified) { (v: AnyView.WithId) in
+            ForEach(self.tabs.map { $0.view }.identified) { (v: AnyView.WithId) in
                 CrumbView<AnyView>(crumb: tabs.crumbs[v.id])
                     .tabItem { items[v.id] }
             }

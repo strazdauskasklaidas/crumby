@@ -74,8 +74,8 @@ public struct CrumbView<Content: View>: View {
         print("xxx onDisappear \(crumb)")
         
         defer {
-            crumb.performOnceOnDisappear.forEach { $0() }
-            crumb.performOnceOnDisappear.removeAll()
+            crumb.performOnDisappearOnce.forEach { $0() }
+            crumb.performOnDisappearOnce.removeAll()
         }
         
         guard !crumb.isSwapppingOutView else { return }
@@ -88,7 +88,7 @@ public struct CrumbView<Content: View>: View {
         case .push:
             if parentIsVisible{
                 crumb.disconnect()
-            } else if crumb.child == nil, let parentSheet = crumb.getParent(.sheet), parentSheet.child?.presentationType == .push {
+            } else if crumb.child == nil, let parentSheet = crumb.parent(ofPresentationType: .sheet), parentSheet.child?.presentationType == .push {
                 parentSheet.disconnect()
             }
             

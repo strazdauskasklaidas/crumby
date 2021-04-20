@@ -8,29 +8,34 @@ public class Crumb: NSObject, ObservableObject {
     }
     
     var view: AnyView?
+    public let handle: Any?
+    
     var isVisible = false
     var isSwapppingOutView = false
     public private(set) var parent: Crumb?
     let presentationType: ViewPresentationType
     
-    @Published var child: Crumb?
+    @Published public private(set) var child: Crumb?
     var tabs: Tabs?
     
     var performOnAppearOnce = [() -> Void]()
-    var performOnceOnDisappear = [() -> Void]()
+    var performOnDisappearOnce = [() -> Void]()
     
-    init(view: AnyView?, parent: Crumb?, presentationType: ViewPresentationType) {
+    init(view: AnyView?, parent: Crumb?, presentationType: ViewPresentationType, handle: Any? = nil) {
         self.view = view
         self.parent = parent
         self.presentationType = presentationType
+        self.handle = handle
     }
       
     convenience init<T: View>(@ViewBuilder content: () -> T, parent: Crumb?, presentationType: ViewPresentationType) {
-        self.init(view: content().erased, parent: parent, presentationType: presentationType)
+        let c = content()
+        self.init(view: c.erased,
+                  parent: parent,
+                  presentationType:presentationType,
+                  handle: toHandle(c))
     }
     
-    deinit { print("deinit \(self)") }
-            
     func disconnect() {
         tabs?.crumbs.forEach { $0.disconnect() }
         child?.disconnect()
@@ -49,25 +54,13 @@ public extension Crumb {
         
     func push<T: View>(@ViewBuilder content: @escaping () -> T, onAppear: ((Crumb) -> Void)? = nil) {
         let childCrumb = Crumb(content: content, parent: self, presentationType: .push)
-
-        if let callback = onAppear {
-            childCrumb.performOnAppearOnce.append {
-                callback(childCrumb)
-            }
-        }
-
+        childCrumb.performOnAppearOnce(onAppear)
         child = childCrumb
     }
             
     func sheet<T: View>(@ViewBuilder content: @escaping () -> T, onAppear: ((Crumb) -> Void)? = nil) {
         let childCrumb = Crumb(content: content, parent: self, presentationType: .sheet)
-        
-        if let callback = onAppear {
-            childCrumb.performOnAppearOnce.append {
-                callback(childCrumb)
-            }
-        }
-        
+        childCrumb.performOnAppearOnce(onAppear)
         child = childCrumb
     }
     
@@ -75,27 +68,14 @@ public extension Crumb {
         var builder = TabViewBuilder()
         tabView(&builder)
         let childCrumb = builder.toCrumb(parent: self, presentationType: .sheet)
-            
-        if let callback = onAppear {
-            childCrumb.performOnAppearOnce.append {
-                callback(childCrumb)
-            }
-        }
-        
+        childCrumb.performOnAppearOnce(onAppear)
         child = childCrumb
     }
     
     func swap<T: View>(@ViewBuilder content: @escaping () -> T, onAppear: ((Crumb) -> Void)? = nil) {
         isSwapppingOutView = true
         tabs = nil
-        
-        
-        if let callback = onAppear {
-            performOnAppearOnce.append {
-                callback(self)
-            }
-        }
-        
+        performOnAppearOnce(onAppear)
         view = content().erased
     }
 
@@ -106,11 +86,7 @@ public extension Crumb {
         tabView(&builder)
         let (newView, newTabs) = builder.makeViewAndTabs(parent: self)
         
-        if let callback = onAppear {
-            performOnAppearOnce.append {
-                callback(self)
-            }
-        }
+        performOnAppearOnce(onAppear)
         
         view = newView
         tabs = newTabs
@@ -129,16 +105,12 @@ public extension Crumb {
         
         let crumb = tabs.crumbs[index]
         
-        if let callback = onAppear {
-            crumb.performOnAppearOnce.append {
-                callback(crumb)
-            }
-        }
+        crumb.performOnAppearOnce(onAppear)
         
         tabs.index.value = index
     }
 
-    func getParent(_ type: ViewPresentationType) -> Crumb? {
+    func parent(ofPresentationType type: ViewPresentationType) -> Crumb? {
         var result: Crumb? = nil
         
         visitAncestors {
@@ -156,26 +128,52 @@ public extension Crumb {
     func getParentTabView() -> Crumb? {
         presentationType == .tab
             ? parent
-            : getParent(.tab)?.parent
+            : parent(ofPresentationType: .tab)?.parent
     }
     
     func dismiss(onDisappear: ((Crumb) -> Void)? = nil) {
         guard let p = parent, ![.tab, .root].contains(presentationType) else { return }
         
-        if let callback = onDisappear {
-            performOnceOnDisappear.append {
-                callback(p)
-            }
-        }
+        performOnDisappearOnce(onDisappear)
         
         disconnect()
         
         p.printHierarchy()
     }
     
+    func get<T>(ofType type: T.Type) -> (crumb: Crumb, handle: T)? {
+        
+        var maybeCrumb: Crumb? = nil
+        var maybe: T? = nil
+        
+        visitAncestors { crumb in
+            
+            if let h = crumb.handle as? T {
+                maybe = h
+                maybeCrumb = crumb
+                return false
+            }
+            
+            return true
+        }
+        
+        if let c = maybeCrumb, let m = maybe {
+            return (c, m)
+        }
+        
+        return nil
+    }
+    
 }
 
 extension Crumb {
+    
+//    func walkHierarchy(_ visit: (Crumb) -> Bool) {
+//        var maybeParent = parent
+//        while let p = maybeParent, visit(p) {
+//            maybeParent = p.parent
+//        }
+//    }
     
     func visitAncestors(_ visit: (Crumb) -> Bool) {
         var maybeParent = parent
@@ -201,6 +199,20 @@ extension Crumb {
         }
     }
 
+    
+    func performOnAppearOnce(_ callback: ((Crumb) -> Void)?) {
+        guard let callback = callback else { return }
+        performOnAppearOnce.append {
+            callback(self)
+        }
+    }
+    
+    func performOnDisappearOnce(_ callback: ((Crumb) -> Void)?) {
+        guard let callback = callback else { return }
+        performOnDisappearOnce.append {
+            callback(self)
+        }
+    }
     
 }
 
