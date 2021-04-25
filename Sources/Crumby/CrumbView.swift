@@ -106,9 +106,9 @@ private extension Crumb {
 
     var shouldBeWrappedInNavigationView: Bool {
         switch presentationType {
-        case .root where tabs == nil:
+        case .root where tabCrumbs == nil:
             return true
-        case .sheet where tabs == nil:
+        case .sheet where tabCrumbs == nil:
             return true
         case .tab:
             return true

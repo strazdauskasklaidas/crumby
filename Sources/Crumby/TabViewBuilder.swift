@@ -15,13 +15,13 @@ public struct TabViewBuilder {
 
 extension TabViewBuilder {
     
-    func makeViewAndTabs(parent: Crumb) -> (AnyView, Crumb.Tabs) {
-        let tabs = Crumb.Tabs(crumbs: self.tabs.map { tab in
-                                .init(view: tab.view,
-                                      parent: parent,
-                                      presentationType: .tab,
-                                      handle: tab.handle) },
-                              index: .init(index: 0))
+    func makeViewAndTabs(parent: Crumb) -> (AnyView, Crumb.TabCrumbsWithIndex) {
+        let tabs = Crumb.TabCrumbsWithIndex(crumbs: self.tabs.map { tab in
+                                                .init(view: tab.view,
+                                                      parent: parent,
+                                                      presentationType: .tab,
+                                                      handle: tab.handle) },
+                                            index: .init(index: 0))
         
         let view = TabCrumbView(index: tabs.index) {
             ForEach(self.tabs.map { $0.view }.identified) { (v: AnyView.WithId) in
@@ -39,7 +39,7 @@ extension TabViewBuilder {
         let (view, tabs) = makeViewAndTabs(parent: crumb)
         
         crumb.view = view
-        crumb.tabs = tabs
+        crumb.tabCrumbs = tabs
         
         return crumb
     }

@@ -2,7 +2,7 @@ import SwiftUI
 
 public class Crumb: NSObject, ObservableObject {
     
-    struct Tabs {
+    struct TabCrumbsWithIndex {
         let crumbs: [Crumb]
         var index: ObservableIndex
     }
@@ -16,7 +16,8 @@ public class Crumb: NSObject, ObservableObject {
     let presentationType: ViewPresentationType
     
     @Published public private(set) var child: Crumb?
-    var tabs: Tabs?
+    var tabCrumbs: TabCrumbsWithIndex?
+    public var tabs: [Crumb]? { tabCrumbs?.crumbs }
     
     var performOnAppearOnce = [() -> Void]()
     var performOnDisappearOnce = [() -> Void]()
@@ -35,19 +36,7 @@ public class Crumb: NSObject, ObservableObject {
                   presentationType:presentationType,
                   handle: toHandle(c))
     }
-    
-    func disconnect() {
-        tabs?.crumbs.forEach { $0.disconnect() }
-        child?.disconnect()
         
-        child = nil
-        tabs = nil
-        
-        parent?.child = nil
-        parent?.tabs = nil
-        parent = nil
-    }
-    
 }
 
 public extension Crumb {
@@ -74,7 +63,7 @@ public extension Crumb {
     
     func swap<T: View>(@ViewBuilder content: @escaping () -> T, onAppear: ((Crumb) -> Void)? = nil) {
         isSwapppingOutView = true
-        tabs = nil
+        tabCrumbs = nil
         performOnAppearOnce(onAppear)
         view = content().erased
     }
@@ -89,16 +78,16 @@ public extension Crumb {
         performOnAppearOnce(onAppear)
         
         view = newView
-        tabs = newTabs
+        tabCrumbs = newTabs
     }
     
     var selectedTab: Int? {
-        tabs?.index.value
+        tabCrumbs?.index.value
     }
     
     func selectTab(index: Int, onAppear: ((Crumb) -> Void)? = nil) {
         guard
-            let tabs = tabs,
+            let tabs = tabCrumbs,
             (tabs.crumbs.count - 1) <= index,
             tabs.index.value != index
         else { return }
@@ -164,7 +153,7 @@ public extension Crumb {
         
         var trailingCrumb = self
         visitAncestors {
-            if let t = $0.tabs, let index = t.crumbs.firstIndex(of: trailingCrumb) {
+            if let t = $0.tabCrumbs, let index = t.crumbs.firstIndex(of: trailingCrumb) {
                 t.index.value = index
             }
             
@@ -178,9 +167,21 @@ public extension Crumb {
 
 extension Crumb {
     
+    func disconnect() {
+        tabCrumbs?.crumbs.forEach { $0.disconnect() }
+        child?.disconnect()
+        
+        child = nil
+        tabCrumbs = nil
+        
+        parent?.child = nil
+        parent?.tabCrumbs = nil
+        parent = nil
+    }
+    
     func visitEveryone(from: Crumb? = nil, visit: (Crumb) -> Bool) {
         
-        let crumbsToVisit = ([parent, child].compactMap { $0 } + (tabs?.crumbs ?? [])).filter { $0 != from }
+        let crumbsToVisit = ([parent, child].compactMap { $0 } + (tabCrumbs?.crumbs ?? [])).filter { $0 != from }
         
         for crumbToVisit in crumbsToVisit {
             guard visit(crumbToVisit) else { return }
