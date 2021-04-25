@@ -55,7 +55,7 @@ public struct CrumbView<Content: View>: View {
     }
     
     private func onAppear() {
-        print("xxx onAppear \(crumb)")
+//        print("xxx onAppear \(crumb)")
         
         defer {
             crumb.performOnAppearOnce.forEach { $0() }
@@ -71,7 +71,7 @@ public struct CrumbView<Content: View>: View {
     }
     
     private func onDisappear() {
-        print("xxx onDisappear \(crumb)")
+//        print("xxx onDisappear \(crumb)")
         
         defer {
             crumb.performOnDisappearOnce.forEach { $0() }

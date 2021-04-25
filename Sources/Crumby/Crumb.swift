@@ -142,38 +142,52 @@ public extension Crumb {
     }
     
     func get<T>(ofType type: T.Type) -> (crumb: Crumb, handle: T)? {
-        
         var maybeCrumb: Crumb? = nil
-        var maybe: T? = nil
+        var maybeHandle: T? = nil
         
-        visitAncestors { crumb in
+        visitEveryone {
+            guard let handle = $0.handle as? T else { return true }
             
-            if let h = crumb.handle as? T {
-                maybe = h
-                maybeCrumb = crumb
-                return false
+            maybeCrumb = $0
+            maybeHandle = handle
+            return false
+        }
+        
+        if let c = maybeCrumb, let h = maybeHandle {
+            return (c, h)
+        }
+        return nil
+    }
+    
+    func makeVisible() {
+        child?.dismiss()
+        
+        var trailingCrumb = self
+        visitAncestors {
+            if let t = $0.tabs, let index = t.crumbs.firstIndex(of: trailingCrumb) {
+                t.index.value = index
             }
             
+            trailingCrumb = $0
             return true
         }
         
-        if let c = maybeCrumb, let m = maybe {
-            return (c, m)
-        }
-        
-        return nil
     }
     
 }
 
 extension Crumb {
     
-//    func walkHierarchy(_ visit: (Crumb) -> Bool) {
-//        var maybeParent = parent
-//        while let p = maybeParent, visit(p) {
-//            maybeParent = p.parent
-//        }
-//    }
+    func visitEveryone(from: Crumb? = nil, visit: (Crumb) -> Bool) {
+        
+        let crumbsToVisit = ([parent, child].compactMap { $0 } + (tabs?.crumbs ?? [])).filter { $0 != from }
+        
+        for crumbToVisit in crumbsToVisit {
+            guard visit(crumbToVisit) else { return }
+         
+            crumbToVisit.visitEveryone(from: self, visit: visit)
+        }
+    }
     
     func visitAncestors(_ visit: (Crumb) -> Bool) {
         var maybeParent = parent
@@ -198,7 +212,6 @@ extension Crumb {
             $0[$1.element.presentationType] = $0[$1.element.presentationType] ?? $1.offset
         }
     }
-
     
     func performOnAppearOnce(_ callback: ((Crumb) -> Void)?) {
         guard let callback = callback else { return }
