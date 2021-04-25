@@ -130,7 +130,7 @@ public extension Crumb {
         p.printHierarchy()
     }
     
-    func get<T>(ofType type: T.Type) -> (crumb: Crumb, handle: T)? {
+    func getHandle<T>(_ type: T.Type) -> (crumb: Crumb, handle: T)? {
         var maybeCrumb: Crumb? = nil
         var maybeHandle: T? = nil
         
