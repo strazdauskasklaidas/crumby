@@ -30,7 +30,9 @@ In order to get going we need to define an entry point to our navigation stack. 
     struct ContentView: View {
 
 		var body: some View {
+		
 			CrumbView.root { YourCustomView() }
+			
 		}
 		
     }
