@@ -8,8 +8,7 @@ SwiftUI navigation made easier.
 - [WIP and TODO](#wip-and-todo)
 
 # Installation
-iOS 13+ is supported
-Crumby is available via SPM.  *Default to the latest release once available.*
+iOS 13+ is supported. Crumby is available via SPM.  *Default to the latest release once available.*
 
     let package = Package( 
 	    ... 
