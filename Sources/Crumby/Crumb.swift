@@ -1,81 +1,13 @@
 import SwiftUI
-import Combine
 
-public class Go<T>: ObservableObject {
-    
-    private let callback: (T) -> Void
-    
-    init(callback: @escaping (T) -> Void) {
-        self.callback = callback
-    }
-    
-    public func callAsFunction(_ p: T) {
-        callback(p)
-    }
-    
-}
-
-public typealias Flow = (Future<Crumb, Never>) -> AnyPublisher<Crumb, Never>
-
-public extension Future where Output == Crumb, Failure == Never {
-    
-    func go<T>(callback: @escaping (Crumb, T) -> Future<Crumb, Never>) -> AnyPublisher<Crumb, Never> {
-        self.flatMap { crumb in
-            crumb.go(T.self).flatMap { output in
-                callback(crumb, output)
-            }
-        }.eraseToAnyPublisher()
-    }
-        
-}
-
-public extension AnyPublisher where Output == Crumb, Failure == Never {
-    
-    func go<T>(callback: @escaping (Crumb, T) -> Future<Crumb, Never>) -> AnyPublisher<Crumb, Never> {
-        self.flatMap { crumb in
-            crumb.go(T.self).flatMap { output in
-                callback(crumb, output)
-            }
-        }.eraseToAnyPublisher()
-    }
-        
-}
-
-public extension Crumb {
-    
-    func go<T>(_ type: T.Type, callback: @escaping (T) -> Void) {
-        let go = Go<T>.init(callback: callback)
-        self.swap { self.view!.environmentObject(go).erased }
-    }
-    
-    func go<T>(_ type: T.Type) -> Future<T, Never> {
-        .init { [unowned self] fulfill in
-            self.go(type) {
-                fulfill(.success($0))
-            }
-        }
-    }
-        
-    func flow(_ nav: Flow) {
-        cancellables.insert(nav(.init { $0(.success(self)) }).sink(receiveValue: { _ in }))
-    }
-    
-}
-
-public class Crumb: NSObject, ObservableObject {
-    
-    private var cancellables = Set<AnyCancellable>()
+public class Crumb: ObservableObject {
     
     struct TabCrumbsWithIndex {
         let crumbs: [Crumb]
         var index: ObservableIndex
     }
     
-    @Published var view: AnyView? {
-        didSet {
-            print("didSetView \(view) for \(self)")
-        }
-    }
+    @Published var view: AnyView?
     public let handle: Any?
     
     var isVisible = false
@@ -90,19 +22,33 @@ public class Crumb: NSObject, ObservableObject {
     var performOnAppearOnce = [() -> Void]()
     var performOnDisappearOnce = [() -> Void]()
     
-    init(view: AnyView?, parent: Crumb?, presentationType: ViewPresentationType, handle: Any? = nil) {
+    init(
+        view: AnyView?,
+        parent: Crumb?,
+        presentationType: ViewPresentationType,
+        handle: Any? = nil,
+        flow: FlowConfig? = nil
+    ) {
         self.view = view
         self.parent = parent
         self.presentationType = presentationType
         self.handle = handle
+        
+        flow?(self)
     }
       
-    convenience init<T: View>(@ViewBuilder content: () -> T, parent: Crumb?, presentationType: ViewPresentationType) {
+    convenience init<T: View>(
+        @ViewBuilder content: () -> T,
+        parent: Crumb?,
+        presentationType: ViewPresentationType
+    ) {
         let c = content()
-        self.init(view: c.erased,
-                  parent: parent,
-                  presentationType:presentationType,
-                  handle: toHandle(c))
+        self.init(
+            view: c.erased,
+            parent: parent,
+            presentationType:presentationType,
+            handle: toHandle(c),
+            flow: getFlowConfig(T.self))
     }
         
 }
@@ -113,14 +59,6 @@ public extension Crumb {
         let childCrumb = Crumb(content: content, parent: self, presentationType: .push)
         childCrumb.performOnAppearOnce(onAppear)
         child = childCrumb
-    }
-    
-    func push<T: View>(@ViewBuilder content: @escaping () -> T) -> Future<Crumb, Never> {
-        .init { [unowned self] fulfill in
-            self.push(content: content) { newCrumb in
-                fulfill(.success(newCrumb))
-            }
-        }
     }
     
     func sheet<T: View>(@ViewBuilder content: @escaping () -> T, onAppear: ((Crumb) -> Void)? = nil) {
@@ -205,15 +143,7 @@ public extension Crumb {
         
         p.printHierarchy()
     }
-    
-    func dismiss() -> Future<Crumb, Never> {
-        .init { [unowned self] fulfill in
-            self.dismiss { parentCrumb in
-                fulfill(.success(parentCrumb))
-            }
-        }
-    }
-    
+        
     func getHandle<T>(_ type: T.Type) -> (crumb: Crumb, handle: T)? {
         var maybeCrumb: Crumb? = nil
         var maybeHandle: T? = nil
@@ -235,15 +165,15 @@ public extension Crumb {
     func makeVisible() {
         child?.dismiss()
         
-        var trailingCrumb = self
-        visitAncestors {
-            if let t = $0.tabCrumbs, let index = t.crumbs.firstIndex(of: trailingCrumb) {
-                t.index.value = index
-            }
-            
-            trailingCrumb = $0
-            return true
-        }
+//        var trailingCrumb = self
+//        visitAncestors {
+//            if let t = $0.tabCrumbs, let index = t.crumbs.firstIndex(of: trailingCrumb) {
+//                t.index.value = index
+//            }
+//
+//            trailingCrumb = $0
+//            return true
+//        }
         
     }
     
@@ -265,7 +195,7 @@ extension Crumb {
     
     func visitEveryone(from: Crumb? = nil, visit: (Crumb) -> Bool) {
         
-        let crumbsToVisit = ([parent, child].compactMap { $0 } + (tabCrumbs?.crumbs ?? [])).filter { $0 != from }
+        let crumbsToVisit = ([parent, child].compactMap { $0 } + (tabCrumbs?.crumbs ?? [])).filter { $0 !== from }
         
         for crumbToVisit in crumbsToVisit {
             guard visit(crumbToVisit) else { return }
