@@ -1,13 +1,13 @@
 import SwiftUI
 
-public class Crumb: NSObject, ObservableObject {
+public class Crumb: ObservableObject {
     
     struct TabCrumbsWithIndex {
         let crumbs: [Crumb]
         var index: ObservableIndex
     }
     
-    var view: AnyView?
+    @Published var view: AnyView?
     public let handle: Any?
     
     var isVisible = false
@@ -22,19 +22,33 @@ public class Crumb: NSObject, ObservableObject {
     var performOnAppearOnce = [() -> Void]()
     var performOnDisappearOnce = [() -> Void]()
     
-    init(view: AnyView?, parent: Crumb?, presentationType: ViewPresentationType, handle: Any? = nil) {
+    init(
+        view: AnyView?,
+        parent: Crumb?,
+        presentationType: ViewPresentationType,
+        handle: Any? = nil,
+        flow: FlowConfig? = nil
+    ) {
         self.view = view
         self.parent = parent
         self.presentationType = presentationType
         self.handle = handle
+        
+        flow?(self)
     }
       
-    convenience init<T: View>(@ViewBuilder content: () -> T, parent: Crumb?, presentationType: ViewPresentationType) {
+    convenience init<T: View>(
+        @ViewBuilder content: () -> T,
+        parent: Crumb?,
+        presentationType: ViewPresentationType
+    ) {
         let c = content()
-        self.init(view: c.erased,
-                  parent: parent,
-                  presentationType:presentationType,
-                  handle: toHandle(c))
+        self.init(
+            view: c.erased,
+            parent: parent,
+            presentationType:presentationType,
+            handle: toHandle(c),
+            flow: getFlowConfig(T.self))
     }
         
 }
@@ -46,7 +60,7 @@ public extension Crumb {
         childCrumb.performOnAppearOnce(onAppear)
         child = childCrumb
     }
-            
+    
     func sheet<T: View>(@ViewBuilder content: @escaping () -> T, onAppear: ((Crumb) -> Void)? = nil) {
         let childCrumb = Crumb(content: content, parent: self, presentationType: .sheet)
         childCrumb.performOnAppearOnce(onAppear)
@@ -129,7 +143,7 @@ public extension Crumb {
         
         p.printHierarchy()
     }
-    
+        
     func getHandle<T>(_ type: T.Type) -> (crumb: Crumb, handle: T)? {
         var maybeCrumb: Crumb? = nil
         var maybeHandle: T? = nil
@@ -151,15 +165,15 @@ public extension Crumb {
     func makeVisible() {
         child?.dismiss()
         
-        var trailingCrumb = self
-        visitAncestors {
-            if let t = $0.tabCrumbs, let index = t.crumbs.firstIndex(of: trailingCrumb) {
-                t.index.value = index
-            }
-            
-            trailingCrumb = $0
-            return true
-        }
+//        var trailingCrumb = self
+//        visitAncestors {
+//            if let t = $0.tabCrumbs, let index = t.crumbs.firstIndex(of: trailingCrumb) {
+//                t.index.value = index
+//            }
+//
+//            trailingCrumb = $0
+//            return true
+//        }
         
     }
     
@@ -181,7 +195,7 @@ extension Crumb {
     
     func visitEveryone(from: Crumb? = nil, visit: (Crumb) -> Bool) {
         
-        let crumbsToVisit = ([parent, child].compactMap { $0 } + (tabCrumbs?.crumbs ?? [])).filter { $0 != from }
+        let crumbsToVisit = ([parent, child].compactMap { $0 } + (tabCrumbs?.crumbs ?? [])).filter { $0 !== from }
         
         for crumbToVisit in crumbsToVisit {
             guard visit(crumbToVisit) else { return }
